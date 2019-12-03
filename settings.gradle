@@ -1,0 +1,2 @@
+include ':app', ':pickingimagesbar'
+rootProject.name='PickingVideoSectionDemo'

@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <declare-styleable name="ImagesPickerBar">
+        <attr name="ipb_bar_fling_able" format="boolean"/>
+
+        <attr name="ipb_bar_height" format="dimension"/>
+
+        <attr name="ipb_image_width" format="dimension"/>
+        <attr name="ipb_image_height" format="dimension"/>
+
+        <attr name="ipb_number_image" format="integer"/>
+        <attr name="ipb_thumb_progress_position" format="dimension|enum">
+            <enum name="center" value="0"/>
+            <enum name="left" value="-1"/>
+        </attr>
+        <attr name="ipb_thumb_progress_color" format="color"/>
+        <attr name="ipb_thumb_progress_height" format="dimension"/>
+        <attr name="ipb_thumb_progress_width" format="dimension"/>
+        <attr name="ipb_thumb_progress_corner" format="dimension"/>
+
+        <attr name="ipb_thumb_select_left" format="reference"/>
+        <attr name="ipb_thumb_select_right" format="reference"/>
+        <attr name="ipb_thumb_select_width" format="dimension"/>
+        <attr name="ipb_thumb_select_height" format="dimension"/>
+
+    </declare-styleable>
+
+</resources>
