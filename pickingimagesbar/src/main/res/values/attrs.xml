@@ -18,10 +18,13 @@
         <attr name="ipb_thumb_progress_width" format="dimension"/>
         <attr name="ipb_thumb_progress_corner" format="dimension"/>
 
+        <attr name="ipb_min_cut" format="integer"/>
         <attr name="ipb_thumb_select_left" format="reference"/>
         <attr name="ipb_thumb_select_right" format="reference"/>
         <attr name="ipb_thumb_select_width" format="dimension"/>
-        <attr name="ipb_thumb_select_height" format="dimension"/>
+
+        <attr name="ipb_select_color" format="color"/>
+        <attr name="ipb_select_color_focus" format="color"/>
 
     </declare-styleable>
 
