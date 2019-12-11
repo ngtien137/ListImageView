@@ -60,6 +60,30 @@
             android:onClick="onClick"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"/>
+        <LinearLayout
+            android:layout_marginTop="4dp"
+            android:orientation="horizontal"
+            android:layout_width="wrap_content"
+            android:layout_height="50dp">
+            <EditText
+                android:imeOptions="actionDone"
+                android:paddingStart="4dp"
+                android:paddingEnd="4dp"
+                android:background="#fff"
+                android:hint="@string/index_part"
+                android:id="@+id/edtIndexPart"
+                android:layout_width="100dp"
+                android:layout_height="match_parent"
+                android:importantForAutofill="no"
+                android:inputType="text" />
+            <TextView
+                android:gravity="center_vertical"
+                android:layout_marginStart="4dp"
+                android:id="@+id/tvResult"
+                android:layout_width="wrap_content"
+                android:layout_height="match_parent"/>
+        </LinearLayout>
+
     </LinearLayout>
 
     <include

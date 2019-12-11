@@ -15,6 +15,7 @@ import androidx.core.graphics.applyCanvas
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.launch
+import kotlin.math.abs
 import kotlin.math.roundToInt
 
 
@@ -22,15 +23,19 @@ class ImagesPickerBar @JvmOverloads constructor(
     context: Context, var attrs: AttributeSet? = null, defStyleAttr: Int = 0
 ) : View(context, attrs, defStyleAttr) {
 
-    private val DEF_COLOR_SELECT = Color.parseColor("#44ffffff")
-    private val DEF_COLOR_SELECT_FOCUS = Color.parseColor("#88000000")
+    private val DEF_COLOR_SELECT = Color.parseColor("#440000ff")
+    private val DEF_COLOR_SELECT_FOCUS = Color.parseColor("#88ff00ff")
 
     private var progress = 0
 
     private var scroller = Scroller(context,LinearInterpolator())
-    private var isAdding = false
+    var isAdding = false
+        private set
+    private var indexEdit = -1
+    private var currentThumb=Thumb.NONE
 
     var isInited = false
+    var isInteracted = false
     var listImagePaths = ArrayList<String>()
         set(value) {
             field = value
@@ -67,8 +72,9 @@ class ImagesPickerBar @JvmOverloads constructor(
         color = Color.BLACK
     }
 
-    private var minCutProgress = 0
-    private var minCutDimen = 0f
+    private var minRangeProgress = 0 
+    private var minRangeDimen = 0f
+    private var thumbRangeWidth = 0
     private val rectLeftThumb = Rect()
     private val rectRightThumb = Rect()
     private var thumbLeft: Drawable? = null
@@ -92,8 +98,11 @@ class ImagesPickerBar @JvmOverloads constructor(
     }
 
     private val extraProgress = 1000
+    private var maxDuration = 200
 
     var listener: IPickBarListener? = null
+
+    fun isEditting() = indexEdit!=-1
 
     init {
         attrs?.let {
@@ -129,7 +138,8 @@ class ImagesPickerBar @JvmOverloads constructor(
                 }
             }
 
-            minCutProgress = ta.getInt(R.styleable.ImagesPickerBar_ipb_min_cut, 0)
+            minRangeProgress = ta.getInt(R.styleable.ImagesPickerBar_ipb_min_range, 0)
+            thumbRangeWidth = ta.getDimensionPixelSize(R.styleable.ImagesPickerBar_ipb_thumb_range_width, 0)
             thumbLeft = ta.getDrawable(R.styleable.ImagesPickerBar_ipb_thumb_select_left)
                 ?: ContextCompat.getDrawable(context, R.drawable.ic_thumb_left)
             thumbRight = ta.getDrawable(R.styleable.ImagesPickerBar_ipb_thumb_select_left)
@@ -160,11 +170,10 @@ class ImagesPickerBar @JvmOverloads constructor(
     }
 
     override fun onDraw(canvas: Canvas?) {
-        log("Invalidate")
         canvas?.let {
             cachedBitmap?.apply {
                 it.drawBitmap(
-                    this, progressPosition, rectImagesBar.top//null,rectImagesBar
+                    this, null,rectImagesBar
                     , paintImagesBar
                 )
                 if (flingAble) {
@@ -174,17 +183,36 @@ class ImagesPickerBar @JvmOverloads constructor(
                 }
                 drawSelectPart(canvas)
                 drawSelectPartFocus(canvas)
-
                 drawCenterProgress(canvas)
+                drawCutThumb(canvas)
             }
         }
     }
 
-    private fun drawSelectPartFocus(canvas: Canvas) {
-        if (listSelectProgress.isEmpty()||!isAdding)
+    private fun drawCutThumb(canvas: Canvas) {
+        if (indexEdit==-1)
             return
-        val lastRectF = listSelectProgress[listSelectProgress.size-1]
-        rectFocusSelect.set(lastRectF)
+        val focusRect = listSelectProgress[indexEdit]
+        if (thumbRangeWidth==0)
+            thumbRangeWidth = (thumbLeft!!.intrinsicWidth.toFloat()/thumbLeft!!.intrinsicHeight * (abs(focusRect.bottom-focusRect.top))).roundToInt()
+        thumbLeft!!.apply {
+            bounds.set(focusRect.left-thumbRangeWidth,focusRect.top,focusRect.left,focusRect.bottom)
+            draw(canvas)
+        }
+        thumbRight!!.apply {
+            bounds.set(focusRect.right,focusRect.top,focusRect.right+thumbRangeWidth,focusRect.bottom)
+            draw(canvas)
+        }
+    }
+
+    private fun drawSelectPartFocus(canvas: Canvas) {
+        if (listSelectProgress.isEmpty()||(!isAdding&&indexEdit==-1))
+            return
+        val focusRect = if (indexEdit==-1) listSelectProgress[listSelectProgress.size-1]
+        else listSelectProgress[indexEdit]
+//        val right = if (indexEdit==-1) focusRect.right
+//        else (progressPosition + scrollX - progressWidth/2f)
+        rectFocusSelect.set(focusRect.left,focusRect.top,focusRect.right,focusRect.bottom)
         canvas.drawRect(rectFocusSelect,paintSelectProgressFocus)
     }
 
@@ -206,7 +234,7 @@ class ImagesPickerBar @JvmOverloads constructor(
     fun startAddingRangeSelect(fromProgress: Int = -1) {
         isAdding = true
         val startPosition =
-            if (fromProgress == -1) progress.ToProgressPosition() else fromProgress.ToProgressPosition()
+            (if (fromProgress == -1) progress.ToProgressPosition() else fromProgress.ToProgressPosition())+progressPosition
         listSelectProgress.add(RectF().apply {
             set(startPosition,rectImagesBar.top,startPosition,rectImagesBar.bottom)
         })
@@ -214,13 +242,15 @@ class ImagesPickerBar @JvmOverloads constructor(
     }
 
     fun stopAddingRangeSelect(add:Boolean=true){
-        isAdding = false
         if (add){
-            listSelectProgress[listSelectProgress.size-1].apply {
-                right = scrollX.toFloat()
+            if(isAdding) {
+                isAdding = false
+                listSelectProgress[listSelectProgress.size - 1].apply {
+                    right = scrollX.toFloat() + progressPosition
+                }
             }
         }
-
+        invalidate()
     }
 
     private fun applyListImages() {
@@ -236,6 +266,17 @@ class ImagesPickerBar @JvmOverloads constructor(
         } else {
             applyListImages(true)
         }
+    }
+
+    fun getMinCutDimen(): Float {
+        minRangeDimen =
+            (minRangeProgress.toFloat() / (maxDuration * extraProgress)) * (viewWidth - progressPosition)
+        return minRangeDimen
+    }
+
+    fun setMaxDuration(maxDuration:Int){
+        this.maxDuration = maxDuration
+        invalidate()
     }
 
     fun applyListImages(apply: Boolean) {
@@ -255,8 +296,9 @@ class ImagesPickerBar @JvmOverloads constructor(
             listImagePaths.addAll(skipList)
         }
         viewWidth = (numberImage * imageWidth + progressPosition).roundToInt()
-        minCutDimen =
-            (minCutProgress.toFloat() / (listImagePaths.size * extraProgress)) * (viewWidth - progressPosition)
+        rectImagesBar.left = progressPosition
+        rectImagesBar.right = rectImagesBar.left+viewWidth
+        getMinCutDimen()
         sync({
             val bmConf = Bitmap.Config.ARGB_8888
             val widthBitmap = viewWidth - progressPosition
@@ -283,7 +325,15 @@ class ImagesPickerBar @JvmOverloads constructor(
     }
 
     override fun onTouchEvent(event: MotionEvent?): Boolean {
-        return gesture.onTouchEvent(event)
+        return when(event?.actionMasked){
+            MotionEvent.ACTION_UP,MotionEvent.ACTION_CANCEL->{
+                isInteracted = false
+                false
+            }
+            else->{
+                gesture.onTouchEvent(event)
+            }
+        }
     }
 
     private var gesture =
@@ -293,13 +343,32 @@ class ImagesPickerBar @JvmOverloads constructor(
                 e1: MotionEvent?, e2: MotionEvent?,
                 distanceX: Float, distanceY: Float
             ): Boolean {
-                var scrollTo = distanceX.toInt() + scrollX
-                if (scrollTo < 0)
-                    scrollTo = 0
-                else if (scrollTo > (viewWidth - progressPosition) && widthScreen < viewWidth) {
-                    scrollTo = ((viewWidth - progressPosition).toInt())
+                if(currentThumb==Thumb.NONE) {
+                    var scrollTo = distanceX.toInt() + scrollX
+                    val minLeft = when {
+                        isAdding -> {
+                            (listSelectProgress[listSelectProgress.lastIndex].left - progressPosition)
+                                .roundToInt()
+                        }
+                        indexEdit != -1 -> {
+                            (listSelectProgress[indexEdit].left - progressPosition)
+                                .roundToInt()
+                        }
+                        else -> 0
+                    }
+                    if (scrollTo < minLeft)
+                        scrollTo = minLeft
+                    else if (scrollTo > (viewWidth - progressPosition) && widthScreen < viewWidth) {
+                        scrollTo = ((viewWidth - progressPosition).toInt())
+                    }
+                    scrollXTo(scrollTo)
+                }else{
+                    if(currentThumb==Thumb.LEFT){
+
+                    }else{
+
+                    }
                 }
-                scrollXTo(scrollTo)
                 return true
             }
 
@@ -309,9 +378,14 @@ class ImagesPickerBar @JvmOverloads constructor(
                 velocityX: Float,
                 velocityY: Float
             ): Boolean {
+                //only support fling for fun. If u want to use, need more code
                 if (flingAble) {
                     val maxX =
-                        if (viewWidth > widthScreen) (viewWidth - progressPosition).roundToInt() else 0
+                        when {
+                            isAdding -> listSelectProgress[listSelectProgress.lastIndex].left.roundToInt()
+                            viewWidth > widthScreen -> (viewWidth - progressPosition).roundToInt()
+                            else -> 0
+                        }
                     scroller.fling(
                         scrollX, scrollY,
                         (-velocityX).toInt(), 0, 0, maxX, 0, viewHeight
@@ -322,8 +396,23 @@ class ImagesPickerBar @JvmOverloads constructor(
             }
 
             override fun onDown(e: MotionEvent?): Boolean {
+                isInteracted = true
                 if (!scroller.isFinished) {
                     scroller.forceFinished(true)
+                }
+                if (isEditting()){
+                    currentThumb = Thumb.NONE
+                    e?.let {
+                        val rectFocus = listSelectProgress[indexEdit]
+                        if (e.x+scrollX in rectFocus.left-thumbRangeWidth..rectFocus.left){
+                            currentThumb = Thumb.LEFT
+                        }else if (e.x+scrollX in rectFocus.right..rectFocus.right+thumbRangeWidth){
+                            currentThumb = Thumb.RIGHT
+                        }else
+                            currentThumb = Thumb.NONE
+                        log(e.x.toString())
+                    }
+                    log(currentThumb.toString())
                 }
                 return true
             }
@@ -333,46 +422,75 @@ class ImagesPickerBar @JvmOverloads constructor(
         var p = progress
         if (progress < 0) {
             p = 0
-        } else if (p > (listImagePaths.size - 1) * extraProgress)
-            p = (listImagePaths.size - 1) * extraProgress
+        } else if (p > maxDuration * extraProgress)
+            p = maxDuration * extraProgress
         this.progress = p
         val currentScroll = p.ToProgressPosition()
         if (isAdding){
             listSelectProgress[listSelectProgress.size-1].apply {
-                right = scrollX.toFloat()
+                right = scrollX.toFloat() + progressPosition
             }
         }
         scrollTo(currentScroll, scrollY)
         listener?.onProgressChange(p)
     }
 
+    fun setEdit(index:Int){
+        indexEdit = index
+        invalidate()
+    }
+
     private fun RectF.set(left: Number, top: Number, right: Number, bottom: Number) {
         set(left.toFloat(), top.toFloat(), right.toFloat(), bottom.toFloat())
     }
 
+    private fun Rect.set(left: Number, top: Number, right: Number, bottom: Number) {
+        set(left.toInt(), top.toInt(), right.toInt(), bottom.toInt())
+    }
+
     fun getProgress() = progress
 
-    fun getMax() = (listImagePaths.size - 1) * extraProgress
+    fun getMax() = maxDuration*extraProgress
 
     private fun Number.ToProgress(): Int {
-        return (this.toFloat() / (viewWidth - progressPosition) * listImagePaths.size).toInt() * extraProgress
+        return (this.toFloat() / (viewWidth - progressPosition) * maxDuration*extraProgress).toInt()
     }
 
     private fun Number.ToProgressPosition(): Int {
-        return ((this.toFloat() / extraProgress) / listImagePaths.size * (viewWidth - progressPosition)).toInt()
+        return ((this.toFloat() / extraProgress) / maxDuration * (viewWidth - progressPosition)).roundToInt()
     }
 
     private fun scrollXTo(toX: Number, isInitWithListener: Boolean = true) {
+        scrollTo(toX.toInt(), scrollY)
         if (isAdding){
             listSelectProgress[listSelectProgress.size-1].apply {
-                right = scrollX.toFloat()
+                right = scrollX.toFloat() + progressPosition
             }
         }
-        scrollTo(toX.toInt(), scrollY)
+//        else if (indexEdit!=-1 && listSelectProgress[indexEdit].right > scrollX.toFloat() + progressPosition){
+//            indexEdit = -1
+//        }
         if (isInitWithListener) {
             progress = toX.ToProgress()
             listener?.onProgressChange(progress)
         }
+    }
+
+    fun getListSelectSize() = listSelectProgress.size
+
+    fun getSelectPartImageIndexs(indexSelectPart:Int): ArrayList<Int> {
+        if (indexSelectPart>=getListSelectSize()||indexSelectPart<0)
+            return ArrayList()
+        val list = ArrayList<Int>()
+        val rect = listSelectProgress[indexSelectPart]
+        val minIndex = (rect.left-progressPosition).ToProgress()/extraProgress
+        var maxIndex = (rect.right-progressPosition).ToProgress()/extraProgress
+        if (maxIndex==maxDuration)
+            maxIndex = maxDuration-1
+        for (index in minIndex..maxIndex){
+            list.add(index)
+        }
+        return list
     }
 
     interface IPickBarListener {
@@ -382,9 +500,12 @@ class ImagesPickerBar @JvmOverloads constructor(
         fun onProgressChange(progress: Int) {}
     }
 
-
     enum class Position(var id: Int) {
         CENTER(0), LEFT(-1)
+    }
+
+    enum class Thumb{
+        LEFT,RIGHT,NONE
     }
 
 }

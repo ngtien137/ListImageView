@@ -6,6 +6,7 @@ import android.os.Environment
 import android.os.Handler
 import android.os.Looper
 import android.view.View
+import android.view.inputmethod.EditorInfo
 import com.luza.pickingimagesbar.ImagesPickerBar
 import com.luza.pickingimagesbar.log
 import kotlinx.android.synthetic.main.activity_main.*
@@ -53,8 +54,22 @@ class MainActivity : AppCompatActivity(), View.OnClickListener {
             }
 
             override fun onProgressChange(progress: Int) {
-                log("Progress: $progress")
+                //log("Progress: $progress")
             }
+        }
+
+        edtIndexPart.setOnEditorActionListener{tv,actionId,event->
+            if (actionId == EditorInfo.IME_ACTION_DONE) {
+                if (edtIndexPart.text.isNotEmpty()) {
+                    val index = edtIndexPart.text.toString().toInt()
+                    pickerBar.setEdit(index)
+                    val list = pickerBar.getSelectPartImageIndexs(index)
+                    val sList = "Result: " + list.joinToString(",")
+                    tvResult.text = sList
+                }
+                true
+            }
+            false
         }
     }
 
@@ -62,12 +77,14 @@ class MainActivity : AppCompatActivity(), View.OnClickListener {
         try {
             while (true) {
                 Handler(Looper.getMainLooper()).post {
-                    if (pickerBar.getProgress()>=pickerBar.getMax())
-                        pickerBar.setProgress(0)
-                    else
-                        pickerBar.setProgress(pickerBar.getProgress() + 1)
+                    if (!pickerBar.isInteracted) {
+                        if (pickerBar.getProgress() >= pickerBar.getMax())
+                            pickerBar.setProgress(0)
+                        else
+                            pickerBar.setProgress(pickerBar.getProgress() + 100)
+                    }
                 }
-                Thread.sleep(1)
+                Thread.sleep(100)
             }
         } catch (e: Exception) {
         }
@@ -80,7 +97,9 @@ class MainActivity : AppCompatActivity(), View.OnClickListener {
                 pickerBar.listImagePaths = getListFile()
             }
             R.id.btnPlay -> {
-                pickerBar.startAddingRangeSelect()
+                if (!pickerBar.isEditting()&&!pickerBar.isAdding) {
+                    pickerBar.startAddingRangeSelect()
+                }
                 thPlay?.interrupt()
                 thPlay = null
                 thPlay = Thread(runPlay)
