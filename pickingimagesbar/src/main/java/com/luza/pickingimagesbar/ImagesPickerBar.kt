@@ -328,6 +328,7 @@ class ImagesPickerBar @JvmOverloads constructor(
         return when(event?.actionMasked){
             MotionEvent.ACTION_UP,MotionEvent.ACTION_CANCEL->{
                 isInteracted = false
+                currentThumb = Thumb.NONE
                 false
             }
             else->{
@@ -343,17 +344,17 @@ class ImagesPickerBar @JvmOverloads constructor(
                 e1: MotionEvent?, e2: MotionEvent?,
                 distanceX: Float, distanceY: Float
             ): Boolean {
-                if(currentThumb==Thumb.NONE) {
+                if(currentThumb==Thumb.NONE||indexEdit==-1) {
                     var scrollTo = distanceX.toInt() + scrollX
                     val minLeft = when {
                         isAdding -> {
                             (listSelectProgress[listSelectProgress.lastIndex].left - progressPosition)
                                 .roundToInt()
                         }
-                        indexEdit != -1 -> {
-                            (listSelectProgress[indexEdit].left - progressPosition)
-                                .roundToInt()
-                        }
+//                        indexEdit != -1 -> {
+//                            (listSelectProgress[indexEdit].left - progressPosition)
+//                                .roundToInt()
+//                        }
                         else -> 0
                     }
                     if (scrollTo < minLeft)
@@ -363,11 +364,26 @@ class ImagesPickerBar @JvmOverloads constructor(
                     }
                     scrollXTo(scrollTo)
                 }else{
+                    val rect = listSelectProgress[indexEdit]
+                    val disX = distanceX.toInt()
                     if(currentThumb==Thumb.LEFT){
-
+                        val minLeft = rectImagesBar.left
+                        val maxRight = rect.right
+                        when {
+                            rect.left-disX<=minLeft -> rect.left = minLeft
+                            rect.left-disX>=maxRight -> rect.left = maxRight
+                            else -> rect.left -= disX
+                        }
                     }else{
-
+                        val minLeft = rect.left
+                        val maxRight = rectImagesBar.right
+                        when {
+                            rect.right-disX<=minLeft -> rect.right = minLeft
+                            rect.right-disX>=maxRight -> rect.right = maxRight
+                            else -> rect.right -= disX
+                        }
                     }
+                    invalidate()
                 }
                 return true
             }
@@ -404,13 +420,15 @@ class ImagesPickerBar @JvmOverloads constructor(
                     currentThumb = Thumb.NONE
                     e?.let {
                         val rectFocus = listSelectProgress[indexEdit]
-                        if (e.x+scrollX in rectFocus.left-thumbRangeWidth..rectFocus.left){
-                            currentThumb = Thumb.LEFT
-                        }else if (e.x+scrollX in rectFocus.right..rectFocus.right+thumbRangeWidth){
-                            currentThumb = Thumb.RIGHT
-                        }else
-                            currentThumb = Thumb.NONE
-                        log(e.x.toString())
+                        currentThumb = when {
+                            e.x+scrollX in rectFocus.left-thumbRangeWidth..rectFocus.left -> {
+                                Thumb.LEFT
+                            }
+                            e.x+scrollX in rectFocus.right..rectFocus.right+thumbRangeWidth -> {
+                                Thumb.RIGHT
+                            }
+                            else -> Thumb.NONE
+                        }
                     }
                     log(currentThumb.toString())
                 }

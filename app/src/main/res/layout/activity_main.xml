@@ -77,6 +77,8 @@
                 android:importantForAutofill="no"
                 android:inputType="text" />
             <TextView
+                android:scrollbars="vertical"
+                android:overScrollMode="always"
                 android:gravity="center_vertical"
                 android:layout_marginStart="4dp"
                 android:id="@+id/tvResult"

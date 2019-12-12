@@ -5,6 +5,7 @@ import android.os.Bundle
 import android.os.Environment
 import android.os.Handler
 import android.os.Looper
+import android.text.method.ScrollingMovementMethod
 import android.view.View
 import android.view.inputmethod.EditorInfo
 import com.luza.pickingimagesbar.ImagesPickerBar
@@ -58,6 +59,7 @@ class MainActivity : AppCompatActivity(), View.OnClickListener {
             }
         }
 
+        tvResult.movementMethod = ScrollingMovementMethod()
         edtIndexPart.setOnEditorActionListener{tv,actionId,event->
             if (actionId == EditorInfo.IME_ACTION_DONE) {
                 if (edtIndexPart.text.isNotEmpty()) {
